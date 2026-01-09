@@ -413,6 +413,7 @@ class JobThaiRowScraper:
 
         console.print("💀 Login ล้มเหลวทุกวิธี", style="bold red")
         return False
+        
     def step2_search(self, keyword):
         search_url = "https://www3.jobthai.com/findresume/findresume.php?l=th"
         console.print(f"2️⃣   กำลังเข้าหน้าค้นหาและพิมพ์: '[bold]{keyword}[/]' ...", style="info")
