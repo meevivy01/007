@@ -1587,7 +1587,38 @@ class JobThaiRowScraper:
 
     def run(self):
         self.email_report_list = []
-        if not self.step1_login(): return
+
+        # 🎚️ MASTER SWITCH: อ่านจาก "ไฟล์ส่วนกลาง" (Central Control)
+        # ===============================================================
+        ENABLE_BATCH_EMAIL = False # (ค่าเริ่มต้น: ปิดไว้ก่อนกันพลาด)
+        
+        # 🟢 ตั้งชื่อไฟล์ Google Sheet ที่เป็นรีโมทกลางตรงนี้
+        CENTRAL_SHEET_NAME = "JobThai_Master_Config" 
+
+        try:
+            # สั่งให้ Client วิ่งไปเปิดไฟล์กลาง (แทนไฟล์ Data ของตัวเอง)
+            master_sh = self.sheet_client.open(CENTRAL_SHEET_NAME)
+            config_ws = master_sh.worksheet("Config")
+            
+            # อ่านค่าจากช่อง B1
+            switch_val = str(config_ws.acell('B1').value).strip().upper()
+            
+            if switch_val == "TRUE":
+                ENABLE_BATCH_EMAIL = True
+                status_msg = f"[ON] เปิดใช้งาน (คุมโดย {CENTRAL_SHEET_NAME})"
+                style = "bold green"
+            else:
+                ENABLE_BATCH_EMAIL = False
+                status_msg = f"[OFF] ปิดใช้งาน (คุมโดย {CENTRAL_SHEET_NAME})"
+                style = "bold red"
+                
+            console.print(f"🎚️ Master Switch: {status_msg}", style=style)
+
+        except Exception as e:
+            console.print(f"⚠️ เข้าถึงไฟล์รีโมทกลาง '{CENTRAL_SHEET_NAME}' ไม่ได้: {e}", style="yellow")
+            console.print("   (ตรวจสอบว่าชื่อไฟล์ตรงกัน และแชร์ให้ Service Account แล้วหรือยัง?)")
+            ENABLE_BATCH_EMAIL = False
+        # ===============================================================
         
         today = datetime.date.today()
         is_friday = (today.weekday() == 4)
@@ -1669,12 +1700,15 @@ class JobThaiRowScraper:
                             except Exception as e: progress.console.print(f"[bold red]❌ Error Link {i+1}: {e}[/]")
                             progress.advance(task_id)
                 
-                if current_keyword_batch and (is_friday or is_manual_run):
-                    self.send_batch_email(current_keyword_batch, keyword)
-                    # 🟢 [เพิ่ม] 6. บันทึกทุกคนใน Batch สุดท้ายลง Google Sheet
-                    if EMAIL_USE_HISTORY:
-                         for p in current_keyword_batch: 
-                             self.update_history_sheet(p['id'], str(today))
+                if days_diff > 30 and (is_friday or is_manual_run) and ENABLE_BATCH_EMAIL:
+                    if current_keyword_batch:
+                        progress.console.print(f"\n[bold green]📨 เจอคนเก่า ({days_diff} วัน) -> ถึงรอบส่งเมลสรุป ({len(current_keyword_batch)} คน)![/]")
+                        self.send_batch_email(current_keyword_batch, keyword)
+                                              
+                        if EMAIL_USE_HISTORY:
+                            for p in current_keyword_batch: 
+                                self.update_history_sheet(p['id'], str(today))
+                        current_keyword_batch = []
 
             console.print("⏳ พัก 3 วินาที ก่อนคำต่อไป...", style="dim")
             time.sleep(3)
