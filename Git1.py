@@ -1619,6 +1619,11 @@ class JobThaiRowScraper:
             console.print("   (ตรวจสอบว่าชื่อไฟล์ตรงกัน และแชร์ให้ Service Account แล้วหรือยัง?)")
             ENABLE_BATCH_EMAIL = False
         # ===============================================================
+
+        # ถ้าล็อกอินไม่ผ่าน ให้สั่งโปรแกรมระเบิดตัวเอง (Exit 1) เพื่อให้ GitHub รู้ว่า Failed
+        if not self.step1_login(): 
+            console.print("❌ Login Failed -> Force Exit for Retry", style="bold red")
+            sys.exit(1)
         
         today = datetime.date.today()
         is_friday = (today.weekday() == 4)
